@@ -1,0 +1,234 @@
+"""
+Python Auto Typer Script
+Author: Assistant
+Description: Auto types text from clipboard with keyboard shortcuts
+Features:
+- Reads text from clipboard (top item)
+- Starts typing after 3 second delay when Ctrl+1 is pressed
+- ESC key toggles pause/resume
+- Visual feedback in console
+"""
+
+import time
+import threading
+import pyautogui
+import keyboard
+import pyperclip
+import sys
+import os
+from datetime import datetime
+
+class AutoTyper:
+    def __init__(self):
+        self.is_typing = False
+        self.is_paused = False
+        self.current_text = ""
+        self.typing_thread = None
+        self.typing_speed = 0.01  # Delay between characters (seconds)
+        self.should_exit = False  # Flag to control program exit
+        
+        # Configure pyautogui
+        pyautogui.FAILSAFE = True  # Move mouse to top-left corner to stop
+        pyautogui.PAUSE = 0.0     # Small pause between pyautogui calls
+        
+    def get_clipboard_text(self):
+        """Get text from clipboard"""
+        try:
+            text = pyperclip.paste()
+            if text:
+                return text
+            else:
+                return ""
+        except Exception as e:
+            print(f"Error reading clipboard: {e}")
+            return ""
+    
+    def log_message(self, message):
+        """Print timestamped message"""
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        print(f"[{timestamp}] {message}")
+    
+    def type_text(self, text):
+        """Type text character by character with pause capability"""
+        self.is_typing = True
+        self.is_paused = False
+        
+        self.log_message(f"Starting to type {len(text)} characters...")
+        
+        for i, char in enumerate(text):
+            # Check if we should stop typing or exit
+            if not self.is_typing or self.should_exit:
+                self.log_message("Typing stopped.")
+                break
+                
+            # Handle pause state
+            while self.is_paused and self.is_typing and not self.should_exit:
+                time.sleep(0.1)  # Check pause state every 100ms
+                
+            if not self.is_typing or self.should_exit:  # Check again after pause loop
+                break
+                
+            # Type the character
+            try:
+                pyautogui.write(char)
+                time.sleep(self.typing_speed)
+            except Exception as e:
+                self.log_message(f"Error typing character '{char}': {e}")
+                continue
+        
+        if self.is_typing and not self.should_exit:
+            self.log_message("Typing completed!")
+        
+        self.is_typing = False
+        self.is_paused = False
+    
+    def start_typing(self):
+        """Start the typing process with 3-second delay"""
+        if self.should_exit:
+            return
+            
+        # If already typing, stop current typing and restart
+        if self.is_typing:
+            self.log_message("Stopping current typing to restart with new clipboard content...")
+            self.stop_typing()
+            time.sleep(0.2)  # Small delay to ensure typing stops
+            
+        # Get fresh text from clipboard
+        text = self.get_clipboard_text()
+        if not text:
+            self.log_message("No text found in clipboard!")
+            return
+            
+        self.current_text = text
+        self.log_message(f"Text loaded from clipboard: {len(text)} characters")
+        self.log_message("Preview: " + text[:50] + ("..." if len(text) > 50 else ""))
+        
+        # 3-second countdown
+        for i in range(3, 0, -1):
+            if self.should_exit:
+                return
+            self.log_message(f"Starting in {i} seconds... (Position your cursor!)")
+            time.sleep(1)
+        
+        if self.should_exit:
+            return
+            
+        # Start typing in a separate thread
+        self.typing_thread = threading.Thread(target=self.type_text, args=(text,))
+        self.typing_thread.daemon = True
+        self.typing_thread.start()
+    
+    def toggle_pause(self):
+        """Toggle pause/resume typing"""
+        if not self.is_typing:
+            self.log_message("Not currently typing. Use Ctrl+1 to start.")
+            return
+            
+        if self.is_paused:
+            self.is_paused = False
+            self.log_message("Typing resumed!")
+        else:
+            self.is_paused = True
+            self.log_message("Typing paused! Press ESC again to resume.")
+    
+    def stop_typing(self):
+        """Stop typing completely"""
+        if self.is_typing:
+            self.is_typing = False
+            self.is_paused = False
+            self.log_message("Typing stopped!")
+        else:
+            self.log_message("Not currently typing.")
+    
+    def setup_hotkeys(self):
+        """Setup keyboard shortcuts"""
+        # Ctrl+1 to start typing
+        keyboard.add_hotkey('ctrl+1', self.start_typing)
+        
+        # ESC to toggle pause/resume
+        keyboard.add_hotkey('esc', self.toggle_pause)
+        
+        # Ctrl+0 to quit
+        keyboard.add_hotkey('ctrl+0', self.quit_application)
+        
+        # Ctrl+Q to quit (optional)
+        keyboard.add_hotkey('ctrl+q', self.quit_application)
+        
+        self.log_message("Hotkeys registered:")
+        self.log_message("  Ctrl+1: Start auto typing (restarts if already typing)")
+        self.log_message("  ESC: Pause/Resume typing")
+        self.log_message("  Ctrl+0: Quit application")
+        self.log_message("  Ctrl+Q: Quit application")
+    
+    def quit_application(self):
+        """Quit the application properly"""
+        self.log_message("Shutting down...")
+        self.should_exit = True
+        self.stop_typing()
+        
+        # Unhook all keyboard listeners
+        try:
+            keyboard.unhook_all()
+            self.log_message("Keyboard listeners stopped.")
+        except Exception as e:
+            self.log_message(f"Error stopping keyboard listeners: {e}")
+        
+        # Give a moment for cleanup
+        time.sleep(0.5)
+        
+        # Force exit the program
+        self.log_message("Program terminated.")
+        os._exit(0)  # Force exit without cleanup
+    
+    def run(self):
+        """Main run loop"""
+        print("=" * 60)
+        print("🤖 PYTHON AUTO TYPER")
+        print("=" * 60)
+        self.log_message("Auto Typer started!")
+        self.log_message("Make sure to copy text to clipboard before starting.")
+        
+        # Setup keyboard shortcuts
+        self.setup_hotkeys()
+        
+        print("\n📋 Instructions:")
+        print("1. Copy the text you want to type to your clipboard")
+        print("2. Position your cursor where you want to type")
+        print("3. Press Ctrl+1 to start typing (3-second delay)")
+        print("   - If already typing, Ctrl+1 will restart with new clipboard content")
+        print("4. Press ESC to pause/resume typing")
+        print("5. Press Ctrl+0 or Ctrl+Q to quit")
+        print("\n⚠️  Move mouse to top-left corner for emergency stop!")
+        print("\nWaiting for commands...")
+        
+        try:
+            # Keep the program running
+            while not self.should_exit:
+                time.sleep(0.1)
+        except KeyboardInterrupt:
+            self.log_message("Interrupted by user (Ctrl+C)")
+        except Exception as e:
+            self.log_message(f"Unexpected error: {e}")
+        finally:
+            self.stop_typing()
+            # Ensure keyboard listeners are cleaned up
+            try:
+                keyboard.unhook_all()
+            except:
+                pass
+            self.log_message("Application closed.")
+
+def main():
+    """Main function"""
+    try:
+        auto_typer = AutoTyper()
+        auto_typer.run()
+    except ImportError as e:
+        print(f"❌ Missing required package: {e}")
+        print("Please install required packages:")
+        print("pip install pyautogui keyboard pyperclip")
+    except Exception as e:
+        print(f"❌ Error starting application: {e}")
+
+if __name__ == "__main__":
+    main()

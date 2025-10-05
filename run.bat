@@ -1,0 +1,12 @@
+@echo off
+REM Navigate to the folder where your script is located
+cd /d "C:\Users\dell\OneDrive\Desktop\anubhav" 
+
+REM Activate the virtual environment
+call venv\Scripts\activate.bat
+
+REM Run the Python script
+python ca.txt
+
+REM Pause to keep the terminal open (optional for debugging)
+pause
