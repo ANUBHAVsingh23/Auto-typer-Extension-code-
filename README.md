@@ -12,7 +12,8 @@ A Python script that automates typing text from your clipboard using convenient 
 
 ## Requirements
 
-Before running the script, ensure you have the necessary packages installed. You can install them using pip:
+Before running the script, ensure you have the necessary packages installed. You can install them using pip:-
 
 ```bash
 pip install pyautogui keyboard pyperclip
+
